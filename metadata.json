@@ -1,0 +1,6 @@
+{
+  "name": "JalQ: Quantum-Powered Smart Water Allocation",
+  "description": "Hybrid classical-quantum optimization platform using QUBO and QAOA for intelligent allocation of scarce water resources across river basins and irrigation networks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
