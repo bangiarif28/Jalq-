@@ -3,6 +3,7 @@ import { Scenario } from '../types';
 export const DEMO_SCENARIO: Scenario = {
   id: 'demo_scenario',
   name: 'Demo Scenario',
+  region: 'Krishna-Godavari Command Area, Andhra Pradesh',
   description: 'Standard baseline river-basin model with 1 Reservoir, 2 Canal Networks, and 3 Crop Zones experiencing 15% deficit.',
   reservoir: {
     name: 'Bhakra-Cauvery Primary Reservoir',

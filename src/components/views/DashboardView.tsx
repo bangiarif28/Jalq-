@@ -8,6 +8,8 @@ import { LiveOptimizationPipeline } from '../dashboard/LiveOptimizationPipeline'
 import { KeyCorrectionCard } from '../dashboard/KeyCorrectionCard';
 import { DashboardCharts } from '../dashboard/DashboardCharts';
 import { RecentActivity } from '../dashboard/RecentActivity';
+import { KrishnaGodavariRegionMap } from '../maps/KrishnaGodavariRegionMap';
+import { WaterAllocationFlowMap } from '../maps/WaterAllocationFlowMap';
 import {
   Droplets,
   Sprout,
@@ -54,12 +56,16 @@ export const DashboardView: React.FC = () => {
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-2xl space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="p-1 rounded-md bg-cyan-950 text-cyan-400 border border-cyan-800/40">
                 <Waves className="w-4 h-4" />
               </span>
               <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
                 Active Scenario: {scenario.name}
+              </span>
+              <span className="text-slate-500 hidden sm:inline">•</span>
+              <span className="text-xs font-semibold text-slate-300">
+                Primary Demo Region: <strong className="text-white">Krishna-Godavari Command Area, Andhra Pradesh</strong>
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
@@ -127,6 +133,12 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ==============================================================
+          MAP 1 — KRISHNA-GODAVARI REGION MAP
+          Primary demo region context for JalQ (UC-033 Problem Context)
+          ============================================================== */}
+      <KrishnaGodavariRegionMap />
 
       {/* ==============================================================
           2. SECOND: KPI Cards (Hydrological & Optimization Invariants)
@@ -206,12 +218,12 @@ export const DashboardView: React.FC = () => {
         />
 
         <MetricCard
-          icon={<HelpCircle className="w-5 h-5 text-slate-400" />}
-          title="Quantum Advantage Ratio"
-          value="Not Established"
-          subtext="Small instance (N=8). Classical is faster; quantum advantage emerges at NISQ scale (>50 qubits)."
-          badge={{ text: 'Empirical Benchmark', type: 'neutral' }}
-          accentColor="blue"
+          icon={<HelpCircle className="w-5 h-5 text-cyan-400" />}
+          title="Quantum Advantage Status"
+          value="Measured — Not Assumed"
+          subtext="Small instance (N=8). Classical SQP is faster (15 ms); QAOA targets combinatorial scale (>50 qubits)."
+          badge={{ text: 'Empirical Baseline', type: 'info' }}
+          accentColor="cyan"
         />
       </div>
 
@@ -229,6 +241,12 @@ export const DashboardView: React.FC = () => {
           4. FOURTH: Main Allocation Chart & Utilization (Requirement 14)
           ============================================================== */}
       <DashboardCharts />
+
+      {/* ==============================================================
+          MAP 2 — JALQ WATER ALLOCATION MAP
+          Visual flow map: Reservoir → Canals → Crop Zones with actual values
+          ============================================================== */}
+      <WaterAllocationFlowMap />
 
       {/* ==============================================================
           5. FIFTH: System Topology & Classical vs QAOA (Requirement 23)

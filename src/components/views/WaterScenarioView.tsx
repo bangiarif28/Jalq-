@@ -15,6 +15,7 @@ import {
   Play,
   Loader2
 } from 'lucide-react';
+import { KrishnaGodavariRegionMap } from '../maps/KrishnaGodavariRegionMap';
 
 export const WaterScenarioView: React.FC = () => {
   const { scenario, setScenario, allPresets, loadPreset, runCompleteOptimization, workflowState } = useApp();
@@ -190,11 +191,19 @@ export const WaterScenarioView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="p-1 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/40">
+              <Waves className="w-4 h-4" />
+            </span>
+            <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+              Primary Demo Region: Krishna-Godavari Command Area, Andhra Pradesh
+            </span>
+          </div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
             Water Scenario Builder
           </h2>
           <p className="text-xs sm:text-sm text-slate-400">
-            Define hydrological capacities, environmental reserves, canal conveyance, and agricultural priorities
+            Define hydrological capacities, environmental reserves, canal conveyance, and agricultural priorities (UC-033 Problem Context)
           </p>
         </div>
 
@@ -263,6 +272,9 @@ export const WaterScenarioView: React.FC = () => {
           <span>{validationSuccess}</span>
         </div>
       )}
+
+      {/* MAP 1: Krishna-Godavari Regional Map Visual */}
+      <KrishnaGodavariRegionMap />
 
       {/* Preset Fast Picker */}
       <div className="p-4 rounded-2xl bg-[#0d1733]/90 border border-cyan-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">

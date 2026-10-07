@@ -16,6 +16,7 @@ import { QAOAView } from './components/views/QAOAView';
 import { ClassicalOptimizerView } from './components/views/ClassicalOptimizerView';
 import { QuantumCircuitView } from './components/views/QuantumCircuitView';
 import { MeasurementView } from './components/views/MeasurementView';
+import { FeasibilityCheckView } from './components/views/FeasibilityCheckView';
 import { ResultsView } from './components/views/ResultsView';
 import { ClassicalComparisonView } from './components/views/ClassicalComparisonView';
 import { WhatIfView } from './components/views/WhatIfView';
@@ -29,11 +30,17 @@ import { ThreeMinuteDemoModal } from './components/modals/ThreeMinuteDemoModal';
 import { MathModal } from './components/modals/MathModal';
 import { LiveOptimizationModal } from './components/modals/LiveOptimizationModal';
 import { OptimizationCompletionBurst } from './components/common/OptimizationCompletionBurst';
+import { LoginView } from './components/views/LoginView';
 import { Menu, X, Play, Clock, Sparkles } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, setJudgeDemoOpen, setThreeMinuteDemoOpen } = useApp();
+  const { activeTab, setJudgeDemoOpen, setThreeMinuteDemoOpen, isAuthenticated } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Protected application route: show LoginView if unauthenticated
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
 
   const renderActiveView = () => {
     switch (activeTab) {
@@ -55,6 +62,8 @@ const AppContent: React.FC = () => {
         return <QuantumCircuitView />;
       case 'measurement':
         return <MeasurementView />;
+      case 'feasibility_check':
+        return <FeasibilityCheckView />;
       case 'results':
         return <ResultsView />;
       case 'classical_comparison':

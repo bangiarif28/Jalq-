@@ -20,7 +20,8 @@ export const Header: React.FC = () => {
     notifications, 
     markNotificationsRead,
     runCompleteOptimization,
-    workflowState
+    workflowState,
+    logout
   } = useApp();
 
   const isOptimizing = workflowState.isOptimizing;
@@ -157,18 +158,27 @@ export const Header: React.FC = () => {
               </div>
               <button
                 onClick={() => {
-                  setIsLoggedOut(true);
-                  setTimeout(() => setIsLoggedOut(false), 2000);
                   setProfileOpen(false);
+                  logout();
                 }}
-                className="w-full flex items-center gap-2 p-2 rounded hover:bg-red-950/40 text-red-400 transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 p-2 rounded hover:bg-red-950/40 text-red-400 transition-colors cursor-pointer font-medium"
               >
                 <LogOut className="w-4 h-4" />
-                <span>{isLoggedOut ? 'Session Cleared' : 'Sign Out / Reset Session'}</span>
+                <span>Logout</span>
               </button>
             </div>
           )}
         </div>
+
+        {/* Quick Logout Button */}
+        <button
+          onClick={logout}
+          title="Logout from JalQ"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0f1d40] hover:bg-red-950/40 border border-cyan-900/30 hover:border-red-800/40 text-slate-300 hover:text-red-400 transition-colors cursor-pointer text-xs"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline font-medium">Logout</span>
+        </button>
       </div>
     </header>
   );

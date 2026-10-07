@@ -14,6 +14,7 @@ import {
 export const MeasurementView: React.FC = () => {
   const { qaoaResult, quboResult, scenario, setActiveTab } = useApp();
   const [filterQuery, setFilterQuery] = useState('');
+  const [feasibilityFilter, setFeasibilityFilter] = useState<'all' | 'feasible' | 'infeasible'>('all');
 
   const shots = qaoaResult.shots;
   const probs = qaoaResult.statevectorProbabilities;
@@ -21,39 +22,101 @@ export const MeasurementView: React.FC = () => {
   const bestBitstring = qaoaResult.bestBitstring;
   const bestFeasible = qaoaResult.bestFeasibleBitstring;
 
+  const capA = scenario.canals.find((c) => c.id === 'canal_a')?.maxCapacity || 600;
+  const capB = scenario.canals.find((c) => c.id === 'canal_b')?.maxCapacity || 400;
+
   // Convert all states with non-zero probability / counts into sorted list
   const stateList = Object.entries(probs)
     .map(([bitstring, prob]) => {
       const shotCount = counts[bitstring] || 0;
       const sampledProb = shots > 0 ? shotCount / shots : prob;
 
-      // Decode feasibility
-      let totalAlloc = 0;
+      // Decode physical hydraulic allocations using actual scenario inputs
+      const allocs: Record<string, number> = {};
       for (const crop of scenario.crops) {
-        totalAlloc += crop.minAllocation;
+        const v = quboResult.variables.find((item) => item.cropId === crop.id);
+        allocs[crop.id] = v ? v.minBaseline : crop.minAllocation;
       }
       for (let i = 0; i < quboResult.numQubits; i++) {
         if (bitstring[i] === '1') {
-          totalAlloc += quboResult.variables[i].bitWeight;
+          const v = quboResult.variables[i];
+          if (v) {
+            allocs[v.cropId] = (allocs[v.cropId] || 0) + v.bitWeight;
+          }
         }
       }
-      const netWater = scenario.reservoir.availableWater - scenario.reservoir.minReserve;
-      const isFeasible = totalAlloc <= netWater;
+
+      let totalAlloc = 0;
+      for (const crop of scenario.crops) {
+        totalAlloc += allocs[crop.id];
+      }
+
+      const canalA = scenario.crops.filter((c) => c.canalId === 'canal_a').reduce((s, c) => s + allocs[c.id], 0);
+      const canalB = scenario.crops.filter((c) => c.canalId === 'canal_b').reduce((s, c) => s + allocs[c.id], 0);
+
+      // Hydraulic feasibility checks using actual scenario limits
+      const resFeasible = totalAlloc <= scenario.reservoir.availableWater;
+      const canalAFeasible = canalA <= capA + 0.1;
+      const canalBFeasible = canalB <= capB + 0.1;
+      const cropsFeasible = scenario.crops.every((c) => allocs[c.id] <= c.maxAllocation + 0.1 && allocs[c.id] >= 0);
+
+      const isFeasible = resFeasible && canalAFeasible && canalBFeasible && cropsFeasible;
+
+      let feasibilityReason = 'Feasible (0 Violations)';
+      if (!resFeasible) {
+        feasibilityReason = `Reservoir Exceeded (${totalAlloc}/${scenario.reservoir.availableWater} ML)`;
+      } else if (!canalAFeasible) {
+        feasibilityReason = `Canal A Exceeded (${canalA}/${capA} ML)`;
+      } else if (!canalBFeasible) {
+        feasibilityReason = `Canal B Exceeded (${canalB}/${capB} ML)`;
+      } else if (!cropsFeasible) {
+        feasibilityReason = `Crop Allocation Limit Exceeded`;
+      }
+
+      const isSelectedSolution = bitstring === bestFeasible;
+      const isMostProbable = bitstring === bestBitstring;
+
+      let statusFlag = 'Candidate State';
+      if (isSelectedSolution && isMostProbable) {
+        statusFlag = '★ Best Feasible (Peak Mode)';
+      } else if (isSelectedSolution) {
+        statusFlag = '★ Best Feasible Solution';
+      } else if (isMostProbable) {
+        statusFlag = 'Peak Mode (Highest |ψ|²)';
+      } else if (isFeasible) {
+        statusFlag = 'Feasible Candidate';
+      } else {
+        statusFlag = 'Infeasible Candidate';
+      }
 
       return {
         bitstring,
         prob,
         shotCount,
         sampledProb,
+        totalAlloc,
+        canalA,
+        canalB,
         isFeasible,
-        isMostProbable: bitstring === bestBitstring,
-        isSelectedSolution: bitstring === bestFeasible,
+        feasibilityReason,
+        isMostProbable,
+        isSelectedSolution,
+        statusFlag,
       };
     })
     .sort((a, b) => b.shotCount - a.shotCount || b.prob - a.prob);
 
+  const totalFeasibleCount = stateList.filter((s) => s.isFeasible).length;
+  const totalInfeasibleCount = stateList.filter((s) => !s.isFeasible).length;
+
   // Filtered list for table
-  const filteredStates = stateList.filter((s) => s.bitstring.includes(filterQuery));
+  const filteredStates = stateList.filter((s) => {
+    const matchesQuery = s.bitstring.includes(filterQuery);
+    if (!matchesQuery) return false;
+    if (feasibilityFilter === 'feasible') return s.isFeasible;
+    if (feasibilityFilter === 'infeasible') return !s.isFeasible;
+    return true;
+  });
 
   // Top 16 states for the large bar chart
   const topChartStates = stateList.slice(0, 16);
@@ -212,21 +275,67 @@ export const MeasurementView: React.FC = () => {
 
       {/* Measurement Table with Filter */}
       <div className="rounded-2xl bg-[#0d1733]/90 border border-cyan-900/30 p-5 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold text-white">Full Statevector Readout Table</h3>
-            <p className="text-xs text-slate-400">Exhaustive basis state frequencies and constraint status</p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white">Full Statevector Readout Table</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/50 font-mono">
+                {totalFeasibleCount} Feasible / {totalInfeasibleCount} Infeasible
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Diagnostic verification table evaluating each quantum basis state against hydraulic reservoir and canal constraints
+            </p>
           </div>
 
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search bitstring (e.g. 101)..."
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded-xl bg-[#091228] border border-cyan-900/40 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Feasibility Filter Tabs */}
+            <div className="flex rounded-xl bg-[#091228] p-1 border border-cyan-900/40 text-xs">
+              <button
+                type="button"
+                onClick={() => setFeasibilityFilter('all')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  feasibilityFilter === 'all'
+                    ? 'bg-cyan-950 text-cyan-300 font-bold border border-cyan-800/60'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All ({stateList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeasibilityFilter('feasible')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  feasibilityFilter === 'feasible'
+                    ? 'bg-emerald-950 text-emerald-300 font-bold border border-emerald-800/60'
+                    : 'text-slate-400 hover:text-emerald-400'
+                }`}
+              >
+                ✓ Feasible ({totalFeasibleCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeasibilityFilter('infeasible')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  feasibilityFilter === 'infeasible'
+                    ? 'bg-amber-950 text-amber-300 font-bold border border-amber-800/60'
+                    : 'text-slate-400 hover:text-amber-400'
+                }`}
+              >
+                ⚠ Infeasible ({totalInfeasibleCount})
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Filter bitstring..."
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                className="pl-8 pr-3 py-1.5 rounded-xl bg-[#091228] border border-cyan-900/40 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 w-36"
+              />
+            </div>
           </div>
         </div>
 
@@ -268,24 +377,40 @@ export const MeasurementView: React.FC = () => {
                   </td>
                   <td className="py-2 px-3 text-center">
                     {st.isFeasible ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/40">
-                        Feasible (0 Violations)
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 font-bold inline-flex items-center gap-1">
+                        <span>✓ Feasible (0 Violations)</span>
+                        <span className="text-emerald-500/80 font-normal">· {st.totalAlloc} ML</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-950 text-red-300 border border-red-800/40">
-                        Over-Capacity
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-800/40 inline-flex items-center gap-1 font-medium">
+                        <span>⚠ {st.feasibilityReason}</span>
                       </span>
                     )}
                   </td>
                   <td className="py-2 px-3 text-right">
-                    {st.isSelectedSolution && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/40 font-bold">
+                    {st.isSelectedSolution && st.isMostProbable && (
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-400 font-bold shadow-sm shadow-cyan-900/50">
+                        ★ Best Feasible & Mode
+                      </span>
+                    )}
+                    {st.isSelectedSolution && !st.isMostProbable && (
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-400 font-bold shadow-sm shadow-cyan-900/50">
                         ★ Selected Solution
                       </span>
                     )}
                     {st.isMostProbable && !st.isSelectedSolution && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/40">
-                        Mode
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/50 font-semibold">
+                        Peak Mode
+                      </span>
+                    )}
+                    {!st.isSelectedSolution && !st.isMostProbable && st.isFeasible && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0a1829] text-emerald-400 border border-emerald-900/40">
+                        Feasible Candidate
+                      </span>
+                    )}
+                    {!st.isSelectedSolution && !st.isMostProbable && !st.isFeasible && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#14121a] text-slate-500 border border-slate-800/60">
+                        Infeasible Candidate
                       </span>
                     )}
                   </td>

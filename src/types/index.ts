@@ -23,6 +23,7 @@ export interface Scenario {
   id: string;
   name: string;
   description: string;
+  region?: string;
   reservoir: {
     name: string;
     availableWater: number; // e.g. 1000 units
@@ -49,7 +50,11 @@ export interface ClassicalSolution {
   iterations: number;
   solverMethod: string;
   timestamp: string;
+  feasibleSolutionRate?: number;
+  constraintStatus?: ConstraintCheckStatus;
 }
+
+export type MILPSolution = ClassicalSolution;
 
 export interface QUBOResult {
   numQubits: number;
@@ -100,6 +105,25 @@ export interface ClassicalOptimizerInfo {
   history: OptimizerHistoryEntry[];
 }
 
+export interface ConstraintCheckStatus {
+  reservoirConstraintSatisfied: boolean;
+  reservoirMessage: string;
+  canalCapacitySatisfied: boolean;
+  canalMessage: string;
+  cropConstraintsSatisfied: boolean;
+  cropMessage: string;
+  finalSolutionFeasible: boolean;
+}
+
+export interface ExactReferenceSolution {
+  bestBitstring: string;
+  energy: number;
+  objectiveScore: number;
+  allocations: Record<string, number>;
+  totalAllocated: number;
+  isFeasible: boolean;
+}
+
 export interface QAOAResult {
   pLayers: number;
   shots: number;
@@ -132,6 +156,9 @@ export interface QAOAResult {
   optimizerInfo?: ClassicalOptimizerInfo;
   backendName: string;
   timestamp: string;
+  feasibleShotsRate?: number;
+  exactReferenceSolution?: ExactReferenceSolution;
+  constraintStatus?: ConstraintCheckStatus;
 }
 
 export type StageStatus = 'waiting' | 'running' | 'completed' | 'warning' | 'failed';
@@ -180,6 +207,7 @@ export type ActiveTab =
   | 'classical_optimizer'
   | 'quantum_circuit'
   | 'measurement'
+  | 'feasibility_check'
   | 'results'
   | 'classical_comparison'
   | 'what_if'

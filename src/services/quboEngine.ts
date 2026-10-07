@@ -13,6 +13,8 @@ export function generateQUBO(scenario: Scenario): QUBOResult {
   const crops = scenario.crops;
   const canals = scenario.canals;
   const netReservoirWater = Math.max(0, scenario.reservoir.availableWater - scenario.reservoir.minReserve);
+  const sumMin = crops.reduce((sum, c) => sum + c.minAllocation, 0);
+  const scaleMin = (sumMin > netReservoirWater && sumMin > 0) ? (netReservoirWater * 0.75) / sumMin : 1.0;
 
   // Define binary expansion bits for each crop (2 to 3 qubits per crop => 7-8 qubits total)
   interface VariableDef {
@@ -28,7 +30,8 @@ export function generateQUBO(scenario: Scenario): QUBOResult {
   let varIdx = 0;
 
   for (const crop of crops) {
-    const range = Math.max(20, crop.maxAllocation - crop.minAllocation);
+    const minBaseline = Math.round(crop.minAllocation * scaleMin);
+    const range = Math.max(20, crop.maxAllocation - minBaseline);
     // 2 or 3 binary bits per crop to represent increments
     const numBits = crop.id === 'paddy' ? 3 : crop.id === 'cotton' ? 3 : 2;
     // Step weights
@@ -42,7 +45,7 @@ export function generateQUBO(scenario: Scenario): QUBOResult {
         cropId: crop.id,
         cropName: crop.name,
         bitWeight,
-        minBaseline: crop.minAllocation,
+        minBaseline,
       });
       varIdx++;
     }

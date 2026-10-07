@@ -123,16 +123,33 @@ export function validateAndEnforceFeasibility(
   if (sumAllocated > availableWater) {
     let excess = sumAllocated - availableWater;
 
-    // Sort crops by priority ascending (lowest priority cut first)
+    // Sort crops by priority ascending (lowest priority cut first, but respecting drought survival floor)
     const sortedByPriority = [...crops].sort((a, b) => a.priority - b.priority);
+    const sumMin = crops.reduce((sum, c) => sum + c.minAllocation, 0);
+    const scaleMin = (sumMin > availableWater && sumMin > 0) ? (availableWater * 0.75) / sumMin : 1.0;
 
     for (const crop of sortedByPriority) {
       if (excess <= 0) break;
       const current = alloc[crop.id] || 0;
-      if (current > 0) {
-        const reduction = Math.min(excess, current);
+      const minFloor = Math.max(10, Math.floor(crop.minAllocation * scaleMin));
+      if (current > minFloor) {
+        const canCut = current - minFloor;
+        const reduction = Math.min(excess, canCut);
         alloc[crop.id] -= reduction;
         excess -= reduction;
+      }
+    }
+
+    // If excess remains because of severe crisis, cut proportionally across all crops above 0
+    if (excess > 0) {
+      for (const crop of sortedByPriority) {
+        if (excess <= 0) break;
+        const current = alloc[crop.id] || 0;
+        if (current > 0) {
+          const reduction = Math.min(excess, current);
+          alloc[crop.id] -= reduction;
+          excess -= reduction;
+        }
       }
     }
 

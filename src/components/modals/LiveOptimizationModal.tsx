@@ -46,26 +46,28 @@ export const LiveOptimizationModal: React.FC = () => {
   // Icon mapping for each stage
   const getStageIcon = (key: string) => {
     switch (key) {
+      case 'water_scenario':
       case 'input_data':
         return Database;
+      case 'validation':
       case 'preprocessing':
-        return Binary;
+        return ShieldCheck;
       case 'classical_baseline':
         return Scale;
       case 'qubo_formulation':
         return FileCode2;
+      case 'qaoa':
       case 'qaoa_optimization':
         return Atom;
-      case 'quantum_circuit':
-        return Cpu;
       case 'measurement':
         return Activity;
-      case 'solution_decoding':
-        return Binary;
+      case 'feasibility_check':
       case 'constraint_validation':
-        return ShieldCheck;
+        return CheckCircle2;
       case 'final_allocation':
         return Droplet;
+      case 'classical_comparison':
+        return Scale;
       default:
         return Cpu;
     }
@@ -168,10 +170,10 @@ export const LiveOptimizationModal: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-white">
-                      ✓ OPTIMIZATION COMPLETE
+                      ✓ COMPLETE OPTIMIZATION WORKFLOW EXECUTED
                     </h3>
                     <p className="text-xs text-slate-300">
-                      All 10 pipeline stages executed. Hybrid classical-quantum water release schedule verified.
+                      All 9 pipeline stages completed: Water Scenario → Validation → Classical Baseline → QUBO Formulation → QAOA → Measurement → Feasibility Check → Final Allocation → Classical Comparison.
                     </p>
                   </div>
                 </div>
@@ -194,7 +196,17 @@ export const LiveOptimizationModal: React.FC = () => {
                   }}
                   className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold cursor-pointer transition-all shadow-md flex items-center gap-1.5"
                 >
-                  <span>View Results</span>
+                  <span>View Final Allocation</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('classical_comparison');
+                    setLiveOptimizationOpen(false);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#0e1d42] hover:bg-[#14295d] text-cyan-300 font-semibold cursor-pointer border border-cyan-800/40 flex items-center gap-1.5"
+                >
+                  <span>View Classical Comparison</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
                 <button

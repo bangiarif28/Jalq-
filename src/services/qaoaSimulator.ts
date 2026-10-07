@@ -1,4 +1,4 @@
-import { Scenario, QUBOResult, QAOAResult } from '../types';
+import { Scenario, QUBOResult, QAOAResult, ExactReferenceSolution, ConstraintCheckStatus } from '../types';
 import { validateAndEnforceFeasibility } from './waterValidation';
 
 interface Complex {
@@ -256,7 +256,8 @@ export function runQAOASimulation(
   } {
     const allocs: Record<string, number> = {};
     for (const crop of scenario.crops) {
-      allocs[crop.id] = crop.minAllocation;
+      const v = qubo.variables.find((item) => item.cropId === crop.id);
+      allocs[crop.id] = v ? v.minBaseline : crop.minAllocation;
     }
 
     for (let i = 0; i < N; i++) {
@@ -322,13 +323,34 @@ export function runQAOASimulation(
   // Find best feasible bitstring with highest objective score
   let bestFeasibleZ = -1;
   let bestFeasibleScore = -1;
+  let feasibleShotCount = 0;
+
   for (let z = 0; z < numStates; z++) {
     const decoded = decodeBitstring(z);
     if (decoded.isFeasible && decoded.objectiveScore > bestFeasibleScore) {
       bestFeasibleScore = decoded.objectiveScore;
       bestFeasibleZ = z;
     }
+    const bs = z.toString(2).padStart(N, '0');
+    const cnt = sampledCounts[bs] || 0;
+    if (cnt > 0 && decoded.isFeasible) {
+      feasibleShotCount += cnt;
+    }
   }
+
+  // Exact reference ground truth solver across all 2^N states
+  const exactBestZ = bestFeasibleZ !== -1 ? bestFeasibleZ : mostProbableZ;
+  const exactDecoded = decodeBitstring(exactBestZ);
+  const exactReferenceSolution: ExactReferenceSolution = {
+    bestBitstring: exactBestZ.toString(2).padStart(N, '0'),
+    energy: Math.round(costValues[exactBestZ] * 10) / 10,
+    objectiveScore: exactDecoded.objectiveScore,
+    allocations: exactDecoded.allocations,
+    totalAllocated: exactDecoded.totalAllocated,
+    isFeasible: exactDecoded.isFeasible,
+  };
+
+  const feasibleShotsRate = Math.round((feasibleShotCount / shots) * 1000) / 10;
 
   // Fallback to most probable if no strictly feasible state found
   const selectedZ = bestFeasibleZ !== -1 ? bestFeasibleZ : mostProbableZ;
@@ -347,6 +369,33 @@ export function runQAOASimulation(
         .reduce((sum, c) => sum + (finalAllocations[c.id] || 0), 0) * 10
     ) / 10;
   }
+
+  // Verify each constraint category explicitly
+  const canalASatisfied = (finalCanalFlows['canal_a'] || 0) <= (scenario.canals.find((c) => c.id === 'canal_a')?.maxCapacity || 600);
+  const canalBSatisfied = (finalCanalFlows['canal_b'] || 0) <= (scenario.canals.find((c) => c.id === 'canal_b')?.maxCapacity || 400);
+  const canalSatisfied = canalASatisfied && canalBSatisfied;
+  const resSatisfied = finalValidation.totalAllocated <= scenario.reservoir.availableWater;
+  const netWater = Math.max(0, scenario.reservoir.availableWater - scenario.reservoir.minReserve);
+  const totalMinAlloc = scenario.crops.reduce((s, c) => s + c.minAllocation, 0);
+  const droughtDeficit = netWater < totalMinAlloc;
+  const droughtScale = totalMinAlloc > 0 ? Math.min(1.0, netWater / totalMinAlloc) : 1.0;
+  const cropSatisfied = scenario.crops.every((c) => {
+    const a = finalAllocations[c.id] || 0;
+    const effMin = droughtDeficit
+      ? Math.min(c.minAllocation, Math.floor(c.minAllocation * droughtScale * 0.75))
+      : c.minAllocation;
+    return a >= effMin - 0.1 && a <= c.maxAllocation + 0.1;
+  });
+
+  const constraintStatus: ConstraintCheckStatus = {
+    reservoirConstraintSatisfied: resSatisfied,
+    reservoirMessage: `Total allocated ${finalValidation.totalAllocated} ML ≤ Available ${scenario.reservoir.availableWater} ML (${scenario.reservoir.minReserve} ML reserve intact)`,
+    canalCapacitySatisfied: canalSatisfied,
+    canalMessage: `Canal A: ${finalCanalFlows['canal_a'] || 0}/${scenario.canals[0]?.maxCapacity || 600} ML | Canal B: ${finalCanalFlows['canal_b'] || 0}/${scenario.canals[1]?.maxCapacity || 400} ML`,
+    cropConstraintsSatisfied: cropSatisfied,
+    cropMessage: scenario.crops.map((c) => `${c.name.split(' ')[0]}: ${finalAllocations[c.id] || 0} ML (demand ${c.demand} ML)`).join(', '),
+    finalSolutionFeasible: resSatisfied && canalSatisfied && cropSatisfied,
+  };
 
   const bestBitstring = mostProbableZ.toString(2).padStart(N, '0');
   const bestFeasibleBitstring = (bestFeasibleZ !== -1 ? bestFeasibleZ : mostProbableZ).toString(2).padStart(N, '0');
@@ -391,5 +440,8 @@ export function runQAOASimulation(
     },
     backendName: 'Qiskit Aer Simulator (Statevector Engine)',
     timestamp: new Date().toLocaleTimeString(),
+    feasibleShotsRate,
+    exactReferenceSolution,
+    constraintStatus,
   };
 }

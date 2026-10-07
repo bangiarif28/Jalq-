@@ -72,11 +72,11 @@ export const LiveOptimizationPipeline: React.FC = () => {
               <Cpu className="w-4 h-4" />
             </span>
             <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
-              JalQ 10-Stage Optimization Pipeline
+              JalQ Complete Optimization Pipeline
             </h3>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Sequential hybrid classical-quantum solver state progression with live status updates
+            Sequential hybrid classical-quantum solver progression: Water Scenario → Validation → Classical Baseline → QUBO Formulation → QAOA → Measurement → Feasibility Check → Final Allocation → Classical Comparison
           </p>
         </div>
 
@@ -101,15 +101,15 @@ export const LiveOptimizationPipeline: React.FC = () => {
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Run Complete Optimization</span>
+                <span>▶ Run Complete Optimization</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* 10-Stage Visual Grid with Connected Cards matching Requirement 15 & 16 */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 sm:gap-2.5">
+      {/* 9-Stage Visual Grid with Connected Cards matching Requirement 2 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2 sm:gap-2.5">
         {stages.map((st, idx) => {
           const isCurrent = isOptimizing && currentStageIndex === idx;
 
